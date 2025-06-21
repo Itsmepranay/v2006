@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useProducts } from '../../context/ProductContext';
+import ImageUpload from '../../components/Admin/ImageUpload';
 
 interface ProductFormProps {
   productId?: string | null;
@@ -44,7 +45,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onClose }) => {
       newErrors.price = 'Price must be a valid positive number';
     }
     if (!formData.description.trim()) newErrors.description = 'Description is required';
-    if (!formData.image.trim()) newErrors.image = 'Image URL is required';
+    if (!formData.image.trim()) newErrors.image = 'Image is required';
     if (!formData.collection) newErrors.collection = 'Collection is required';
 
     setErrors(newErrors);
@@ -86,6 +87,13 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onClose }) => {
     }
   };
 
+  const handleImageChange = (imageUrl: string) => {
+    setFormData(prev => ({ ...prev, image: imageUrl }));
+    if (errors.image) {
+      setErrors(prev => ({ ...prev, image: '' }));
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
       <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
@@ -112,7 +120,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onClose }) => {
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
                   errors.name ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="Enter product name"
@@ -130,7 +138,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onClose }) => {
                 value={formData.price}
                 onChange={handleChange}
                 step="0.01"
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
                   errors.price ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="0.00"
@@ -147,7 +155,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onClose }) => {
               name="collection"
               value={formData.collection}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
                 errors.collection ? 'border-red-500' : 'border-gray-300'
               }`}
             >
@@ -161,22 +169,12 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onClose }) => {
             {errors.collection && <p className="text-red-500 text-sm mt-1">{errors.collection}</p>}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Image URL *
-            </label>
-            <input
-              type="url"
-              name="image"
-              value={formData.image}
-              onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.image ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="https://example.com/image.jpg"
-            />
-            {errors.image && <p className="text-red-500 text-sm mt-1">{errors.image}</p>}
-          </div>
+          <ImageUpload
+            value={formData.image}
+            onChange={handleImageChange}
+            label="Product Image"
+            error={errors.image}
+          />
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -187,7 +185,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onClose }) => {
               value={formData.description}
               onChange={handleChange}
               rows={4}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
                 errors.description ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder="Enter product description"
@@ -202,7 +200,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onClose }) => {
               id="featured"
               checked={formData.featured}
               onChange={handleChange}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
             />
             <label htmlFor="featured" className="ml-2 block text-sm text-gray-900">
               Featured Product
@@ -213,13 +211,13 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onClose }) => {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               {isEditing ? 'Update Product' : 'Add Product'}
             </button>

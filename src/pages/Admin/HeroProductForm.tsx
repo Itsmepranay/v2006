@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload, Eye } from 'lucide-react';
+import { X, Eye } from 'lucide-react';
 import { useProducts } from '../../context/ProductContext';
 import { HeroProduct } from '../../types';
+import ImageUpload from '../../components/Admin/ImageUpload';
 
 interface HeroProductFormProps {
   onClose: () => void;
@@ -23,7 +24,7 @@ const HeroProductForm: React.FC<HeroProductFormProps> = ({ onClose }) => {
 
   useEffect(() => {
     if (siteSettings.heroProduct) {
-      console.log('Loading hero product data:', siteSettings.heroProduct); // Debug log
+      console.log('Loading hero product data:', siteSettings.heroProduct);
       setFormData({ ...siteSettings.heroProduct });
     }
   }, [siteSettings.heroProduct]);
@@ -33,7 +34,7 @@ const HeroProductForm: React.FC<HeroProductFormProps> = ({ onClose }) => {
 
     if (!formData.title.trim()) newErrors.title = 'Title is required';
     if (!formData.description.trim()) newErrors.description = 'Description is required';
-    if (!formData.image.trim()) newErrors.image = 'Image URL is required';
+    if (!formData.image.trim()) newErrors.image = 'Image is required';
     if (!formData.ctaText.trim()) newErrors.ctaText = 'Call-to-action text is required';
     if (!formData.ctaLink.trim()) newErrors.ctaLink = 'Call-to-action link is required';
     if (formData.price && (isNaN(Number(formData.price)) || Number(formData.price) < 0)) {
@@ -54,12 +55,11 @@ const HeroProductForm: React.FC<HeroProductFormProps> = ({ onClose }) => {
       price: formData.price ? Number(formData.price) : undefined
     };
 
-    console.log('Submitting hero product data:', heroProductData); // Debug log
+    console.log('Submitting hero product data:', heroProductData);
     updateHeroProduct(heroProductData);
     
-    // Add a small delay to ensure the update is processed
     setTimeout(() => {
-      console.log('Hero product update completed'); // Debug log
+      console.log('Hero product update completed');
       onClose();
     }, 100);
   };
@@ -71,9 +71,15 @@ const HeroProductForm: React.FC<HeroProductFormProps> = ({ onClose }) => {
       [name]: value
     }));
     
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const handleImageChange = (imageUrl: string) => {
+    setFormData(prev => ({ ...prev, image: imageUrl }));
+    if (errors.image) {
+      setErrors(prev => ({ ...prev, image: '' }));
     }
   };
 
@@ -110,7 +116,6 @@ const HeroProductForm: React.FC<HeroProductFormProps> = ({ onClose }) => {
             </div>
           </div>
 
-          {/* Preview */}
           <div className="bg-gradient-to-br from-green-50 via-white to-amber-50 rounded-lg p-8">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
               <div className="space-y-6">
@@ -216,34 +221,12 @@ const HeroProductForm: React.FC<HeroProductFormProps> = ({ onClose }) => {
             </div>
 
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Product Image URL *
-              </label>
-              <div className="flex space-x-2">
-                <input
-                  type="url"
-                  name="image"
-                  value={formData.image}
-                  onChange={handleChange}
-                  className={`flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
-                    errors.image ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="https://example.com/image.jpg"
-                />
-              </div>
-              {errors.image && <p className="text-red-500 text-sm mt-1">{errors.image}</p>}
-              {formData.image && (
-                <div className="mt-2">
-                  <img
-                    src={formData.image}
-                    alt="Preview"
-                    className="w-32 h-20 object-cover rounded border"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                    }}
-                  />
-                </div>
-              )}
+              <ImageUpload
+                value={formData.image}
+                onChange={handleImageChange}
+                label="Hero Product Image"
+                error={errors.image}
+              />
             </div>
 
             <div>

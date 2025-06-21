@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useProducts } from '../../context/ProductContext';
+import ImageUpload from '../../components/Admin/ImageUpload';
 
 interface CollectionFormProps {
   collectionId?: string | null;
@@ -34,7 +35,7 @@ const CollectionForm: React.FC<CollectionFormProps> = ({ collectionId, onClose }
 
     if (!formData.name.trim()) newErrors.name = 'Collection name is required';
     if (!formData.description.trim()) newErrors.description = 'Description is required';
-    if (!formData.image.trim()) newErrors.image = 'Image URL is required';
+    if (!formData.image.trim()) newErrors.image = 'Image is required';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -72,6 +73,13 @@ const CollectionForm: React.FC<CollectionFormProps> = ({ collectionId, onClose }
     }
   };
 
+  const handleImageChange = (imageUrl: string) => {
+    setFormData(prev => ({ ...prev, image: imageUrl }));
+    if (errors.image) {
+      setErrors(prev => ({ ...prev, image: '' }));
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
       <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
@@ -97,7 +105,7 @@ const CollectionForm: React.FC<CollectionFormProps> = ({ collectionId, onClose }
               name="name"
               value={formData.name}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
                 errors.name ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder="Enter collection name"
@@ -105,34 +113,12 @@ const CollectionForm: React.FC<CollectionFormProps> = ({ collectionId, onClose }
             {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Image URL *
-            </label>
-            <input
-              type="url"
-              name="image"
-              value={formData.image}
-              onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                errors.image ? 'border-red-500' : 'border-gray-300'
-              }`}
-              placeholder="https://example.com/image.jpg"
-            />
-            {errors.image && <p className="text-red-500 text-sm mt-1">{errors.image}</p>}
-            {formData.image && (
-              <div className="mt-2">
-                <img
-                  src={formData.image}
-                  alt="Preview"
-                  className="w-32 h-20 object-cover rounded border"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-              </div>
-            )}
-          </div>
+          <ImageUpload
+            value={formData.image}
+            onChange={handleImageChange}
+            label="Collection Image"
+            error={errors.image}
+          />
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -143,7 +129,7 @@ const CollectionForm: React.FC<CollectionFormProps> = ({ collectionId, onClose }
               value={formData.description}
               onChange={handleChange}
               rows={4}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
                 errors.description ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder="Enter collection description"
@@ -155,13 +141,13 @@ const CollectionForm: React.FC<CollectionFormProps> = ({ collectionId, onClose }
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
             >
               {isEditing ? 'Update Collection' : 'Add Collection'}
             </button>
