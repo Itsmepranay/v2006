@@ -16,6 +16,7 @@ const CollectionForm: React.FC<CollectionFormProps> = ({ collectionId, onClose }
     image: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
 
   const isEditing = !!collectionId;
   const existingCollection = isEditing ? getCollectionById(collectionId) : null;
@@ -41,23 +42,31 @@ const CollectionForm: React.FC<CollectionFormProps> = ({ collectionId, onClose }
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    const collectionData = {
-      name: formData.name.trim(),
-      description: formData.description.trim(),
-      image: formData.image.trim(),
-    };
+    setSubmitting(true);
+    try {
+      const collectionData = {
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        image: formData.image.trim(),
+      };
 
-    if (isEditing && collectionId) {
-      updateCollection(collectionId, collectionData);
-    } else {
-      addCollection(collectionData);
+      if (isEditing && collectionId) {
+        await updateCollection(collectionId, collectionData);
+      } else {
+        await addCollection(collectionData);
+      }
+
+      onClose();
+    } catch (error) {
+      console.error('Error saving collection:', error);
+      alert('Failed to save collection. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
-
-    onClose();
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -90,6 +99,7 @@ const CollectionForm: React.FC<CollectionFormProps> = ({ collectionId, onClose }
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"
+            disabled={submitting}
           >
             <X className="h-6 w-6" />
           </button>
@@ -105,7 +115,8 @@ const CollectionForm: React.FC<CollectionFormProps> = ({ collectionId, onClose }
               name="name"
               value={formData.name}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
+              disabled={submitting}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 ${
                 errors.name ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder="Enter collection name"
@@ -129,7 +140,8 @@ const CollectionForm: React.FC<CollectionFormProps> = ({ collectionId, onClose }
               value={formData.description}
               onChange={handleChange}
               rows={4}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
+              disabled={submitting}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 ${
                 errors.description ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder="Enter collection description"
@@ -141,15 +153,17 @@ const CollectionForm: React.FC<CollectionFormProps> = ({ collectionId, onClose }
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500"
+              disabled={submitting}
+              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+              disabled={submitting}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isEditing ? 'Update Collection' : 'Add Collection'}
+              {submitting ? 'Saving...' : (isEditing ? 'Update Collection' : 'Add Collection')}
             </button>
           </div>
         </form>

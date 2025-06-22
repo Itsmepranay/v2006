@@ -19,6 +19,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onClose }) => {
     featured: false,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitting, setSubmitting] = useState(false);
 
   const isEditing = !!productId;
   const existingProduct = isEditing ? getProductById(productId) : null;
@@ -52,26 +53,34 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onClose }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validateForm()) return;
 
-    const productData = {
-      name: formData.name.trim(),
-      price: Number(formData.price),
-      description: formData.description.trim(),
-      image: formData.image.trim(),
-      collection: formData.collection,
-      featured: formData.featured,
-    };
+    setSubmitting(true);
+    try {
+      const productData = {
+        name: formData.name.trim(),
+        price: Number(formData.price),
+        description: formData.description.trim(),
+        image: formData.image.trim(),
+        collection: formData.collection,
+        featured: formData.featured,
+      };
 
-    if (isEditing && productId) {
-      updateProduct(productId, productData);
-    } else {
-      addProduct(productData);
+      if (isEditing && productId) {
+        await updateProduct(productId, productData);
+      } else {
+        await addProduct(productData);
+      }
+
+      onClose();
+    } catch (error) {
+      console.error('Error saving product:', error);
+      alert('Failed to save product. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
-
-    onClose();
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -104,6 +113,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onClose }) => {
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600"
+            disabled={submitting}
           >
             <X className="h-6 w-6" />
           </button>
@@ -120,7 +130,8 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onClose }) => {
                 name="name"
                 value={formData.name}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
+                disabled={submitting}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 ${
                   errors.name ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="Enter product name"
@@ -138,7 +149,8 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onClose }) => {
                 value={formData.price}
                 onChange={handleChange}
                 step="0.01"
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
+                disabled={submitting}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 ${
                   errors.price ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="0.00"
@@ -155,7 +167,8 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onClose }) => {
               name="collection"
               value={formData.collection}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
+              disabled={submitting}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 ${
                 errors.collection ? 'border-red-500' : 'border-gray-300'
               }`}
             >
@@ -185,7 +198,8 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onClose }) => {
               value={formData.description}
               onChange={handleChange}
               rows={4}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
+              disabled={submitting}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 ${
                 errors.description ? 'border-red-500' : 'border-gray-300'
               }`}
               placeholder="Enter product description"
@@ -200,7 +214,8 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onClose }) => {
               id="featured"
               checked={formData.featured}
               onChange={handleChange}
-              className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded"
+              disabled={submitting}
+              className="h-4 w-4 text-green-600 focus:ring-green-500 border-gray-300 rounded disabled:opacity-50"
             />
             <label htmlFor="featured" className="ml-2 block text-sm text-gray-900">
               Featured Product
@@ -211,15 +226,17 @@ const ProductForm: React.FC<ProductFormProps> = ({ productId, onClose }) => {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500"
+              disabled={submitting}
+              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+              disabled={submitting}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isEditing ? 'Update Product' : 'Add Product'}
+              {submitting ? 'Saving...' : (isEditing ? 'Update Product' : 'Add Product')}
             </button>
           </div>
         </form>

@@ -21,10 +21,10 @@ const HeroProductForm: React.FC<HeroProductFormProps> = ({ onClose }) => {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [previewMode, setPreviewMode] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (siteSettings.heroProduct) {
-      console.log('Loading hero product data:', siteSettings.heroProduct);
       setFormData({ ...siteSettings.heroProduct });
     }
   }, [siteSettings.heroProduct]);
@@ -45,23 +45,26 @@ const HeroProductForm: React.FC<HeroProductFormProps> = ({ onClose }) => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!validateForm()) return;
 
-    const heroProductData: HeroProduct = {
-      ...formData,
-      id: formData.id || Date.now().toString(),
-      price: formData.price ? Number(formData.price) : undefined
-    };
+    setSubmitting(true);
+    try {
+      const heroProductData: HeroProduct = {
+        ...formData,
+        id: formData.id || Date.now().toString(),
+        price: formData.price ? Number(formData.price) : undefined
+      };
 
-    console.log('Submitting hero product data:', heroProductData);
-    updateHeroProduct(heroProductData);
-    
-    setTimeout(() => {
-      console.log('Hero product update completed');
+      await updateHeroProduct(heroProductData);
       onClose();
-    }, 100);
+    } catch (error) {
+      console.error('Error updating hero product:', error);
+      alert('Failed to update hero product. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -104,12 +107,14 @@ const HeroProductForm: React.FC<HeroProductFormProps> = ({ onClose }) => {
               <button
                 onClick={() => setPreviewMode(false)}
                 className="text-gray-400 hover:text-gray-600"
+                disabled={submitting}
               >
                 <Eye className="h-6 w-6" />
               </button>
               <button
                 onClick={onClose}
                 className="text-gray-400 hover:text-gray-600"
+                disabled={submitting}
               >
                 <X className="h-6 w-6" />
               </button>
@@ -146,15 +151,17 @@ const HeroProductForm: React.FC<HeroProductFormProps> = ({ onClose }) => {
           <div className="flex justify-end space-x-3 pt-6">
             <button
               onClick={() => setPreviewMode(false)}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              disabled={submitting}
+              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
               Edit
             </button>
             <button
-              onClick={handleSubmit}
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+              onClick={() => handleSubmit()}
+              disabled={submitting}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Save Changes
+              {submitting ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </div>
@@ -172,12 +179,14 @@ const HeroProductForm: React.FC<HeroProductFormProps> = ({ onClose }) => {
               onClick={() => setPreviewMode(true)}
               className="text-gray-400 hover:text-gray-600 p-2 rounded-md hover:bg-gray-100"
               title="Preview"
+              disabled={submitting}
             >
               <Eye className="h-5 w-5" />
             </button>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600"
+              disabled={submitting}
             >
               <X className="h-6 w-6" />
             </button>
@@ -195,7 +204,8 @@ const HeroProductForm: React.FC<HeroProductFormProps> = ({ onClose }) => {
                 name="title"
                 value={formData.title}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
+                disabled={submitting}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 ${
                   errors.title ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="e.g., Handcrafted Coconut Bowl Set"
@@ -212,7 +222,8 @@ const HeroProductForm: React.FC<HeroProductFormProps> = ({ onClose }) => {
                 value={formData.description}
                 onChange={handleChange}
                 rows={4}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
+                disabled={submitting}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 ${
                   errors.description ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="Describe the featured product and its benefits..."
@@ -239,7 +250,8 @@ const HeroProductForm: React.FC<HeroProductFormProps> = ({ onClose }) => {
                 value={formData.price || ''}
                 onChange={handleChange}
                 step="0.01"
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
+                disabled={submitting}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 ${
                   errors.price ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="0.00"
@@ -256,7 +268,8 @@ const HeroProductForm: React.FC<HeroProductFormProps> = ({ onClose }) => {
                 name="ctaText"
                 value={formData.ctaText}
                 onChange={handleChange}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
+                disabled={submitting}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 ${
                   errors.ctaText ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="e.g., Shop Now, View Collection"
@@ -274,7 +287,8 @@ const HeroProductForm: React.FC<HeroProductFormProps> = ({ onClose }) => {
                   name="ctaLink"
                   value={formData.ctaLink}
                   onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 ${
+                  disabled={submitting}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 ${
                     errors.ctaLink ? 'border-red-500' : 'border-gray-300'
                   }`}
                   placeholder="/products or /collections"
@@ -285,7 +299,8 @@ const HeroProductForm: React.FC<HeroProductFormProps> = ({ onClose }) => {
                       key={link.value}
                       type="button"
                       onClick={() => setFormData(prev => ({ ...prev, ctaLink: link.value }))}
-                      className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded transition-colors"
+                      disabled={submitting}
+                      className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-2 py-1 rounded transition-colors disabled:opacity-50"
                     >
                       {link.label}
                     </button>
@@ -300,22 +315,25 @@ const HeroProductForm: React.FC<HeroProductFormProps> = ({ onClose }) => {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500"
+              disabled={submitting}
+              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={() => setPreviewMode(true)}
-              className="px-4 py-2 border border-green-600 text-green-600 rounded-md hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-green-500"
+              disabled={submitting}
+              className="px-4 py-2 border border-green-600 text-green-600 rounded-md hover:bg-green-50 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50"
             >
               Preview
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+              disabled={submitting}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Save Changes
+              {submitting ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </form>

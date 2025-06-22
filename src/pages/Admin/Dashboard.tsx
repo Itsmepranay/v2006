@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { LogOut, Plus, Search, Edit, Trash2, Package, TrendingUp, Users, DollarSign, FolderOpen, Star, Settings } from 'lucide-react';
+import { LogOut, Plus, Search, Edit, Trash2, Package, TrendingUp, Users, DollarSign, FolderOpen, Star, Settings, RefreshCw, Zap } from 'lucide-react';
 import { useProducts } from '../../context/ProductContext';
+import { triggerNetlifyBuild } from '../../lib/supabase';
 import ProductForm from './ProductForm';
 import CollectionForm from './CollectionForm';
 import HeroProductForm from './HeroProductForm';
@@ -10,7 +11,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
-  const { products, collections, siteSettings, deleteProduct, deleteCollection } = useProducts();
+  const { products, collections, siteSettings, deleteProduct, deleteCollection, error, refreshData } = useProducts();
   const [showAddProductForm, setShowAddProductForm] = useState(false);
   const [showAddCollectionForm, setShowAddCollectionForm] = useState(false);
   const [showHeroForm, setShowHeroForm] = useState(false);
@@ -18,6 +19,7 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
   const [editingCollection, setEditingCollection] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'products' | 'collections' | 'hero'>('hero');
+  const [buildTriggering, setBuildTriggering] = useState(false);
 
   const filteredProducts = products.filter(product =>
     product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -36,15 +38,22 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
     averagePrice: products.reduce((sum, p) => sum + p.price, 0) / products.length || 0,
   };
 
-  const handleDeleteProduct = (productId: string) => {
+  const handleDeleteProduct = async (productId: string) => {
     if (window.confirm('Are you sure you want to delete this product?')) {
-      deleteProduct(productId);
+      try {
+        await deleteProduct(productId);
+      } catch (error) {
+        alert('Failed to delete product. Please try again.');
+      }
     }
   };
 
-  const handleDeleteCollection = (collectionId: string) => {
+  const handleDeleteCollection = async (collectionId: string) => {
     const collection = collections.find(c => c.id === collectionId);
-    const productsInCollection = products.filter(p => p.collection === collection?.name);
+    const productsInCollection = products.filter(p => {
+      const productCollection = collections.find(c => c.name === p.collection);
+      return productCollection?.id === collectionId;
+    });
     
     if (productsInCollection.length > 0) {
       if (!window.confirm(`This collection contains ${productsInCollection.length} products. Deleting it will also delete all products in this collection. Are you sure?`)) {
@@ -56,7 +65,35 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
       }
     }
     
-    deleteCollection(collectionId);
+    try {
+      await deleteCollection(collectionId);
+    } catch (error) {
+      alert('Failed to delete collection. Please try again.');
+    }
+  };
+
+  const handleManualBuildTrigger = async () => {
+    setBuildTriggering(true);
+    try {
+      const success = await triggerNetlifyBuild();
+      if (success) {
+        alert('Build triggered successfully! Your changes will be live in a few minutes.');
+      } else {
+        alert('Failed to trigger build. Please check your Netlify configuration.');
+      }
+    } catch (error) {
+      alert('Error triggering build. Please try again.');
+    } finally {
+      setBuildTriggering(false);
+    }
+  };
+
+  const handleRefreshData = async () => {
+    try {
+      await refreshData();
+    } catch (error) {
+      alert('Failed to refresh data. Please try again.');
+    }
   };
 
   return (
@@ -66,16 +103,51 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <h1 className="text-2xl font-bold text-gray-900">Everything Coconut Admin</h1>
-            <button
-              onClick={onLogout}
-              className="flex items-center space-x-2 text-gray-700 hover:text-red-600 transition-colors"
-            >
-              <LogOut className="h-4 w-4" />
-              <span>Logout</span>
-            </button>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={handleRefreshData}
+                className="flex items-center space-x-2 text-gray-700 hover:text-green-600 transition-colors p-2 rounded-md hover:bg-gray-100"
+                title="Refresh Data"
+              >
+                <RefreshCw className="h-4 w-4" />
+                <span className="hidden sm:inline">Refresh</span>
+              </button>
+              <button
+                onClick={handleManualBuildTrigger}
+                disabled={buildTriggering}
+                className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Trigger Manual Build"
+              >
+                <Zap className={`h-4 w-4 ${buildTriggering ? 'animate-pulse' : ''}`} />
+                <span>{buildTriggering ? 'Building...' : 'Deploy Now'}</span>
+              </button>
+              <button
+                onClick={onLogout}
+                className="flex items-center space-x-2 text-gray-700 hover:text-red-600 transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
+              </button>
+            </div>
           </div>
         </div>
       </header>
+
+      {/* Error Display */}
+      {error && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex">
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Error</h3>
+                <div className="mt-2 text-sm text-red-700">
+                  <p>{error}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats */}
@@ -117,6 +189,20 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout }) => {
                 <p className="text-sm font-medium text-gray-600">Avg Price</p>
                 <p className="text-2xl font-semibold text-gray-900">₹{stats.averagePrice.toFixed(0)}</p>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Auto-Deploy Notice */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
+          <div className="flex items-start">
+            <Zap className="h-5 w-5 text-blue-600 mt-0.5" />
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-blue-800">Auto-Deploy Enabled</h3>
+              <p className="text-sm text-blue-700 mt-1">
+                Changes to products, collections, and site settings will automatically trigger a rebuild and deploy to Netlify. 
+                You can also manually trigger a build using the "Deploy Now" button above.
+              </p>
             </div>
           </div>
         </div>

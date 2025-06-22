@@ -1,25 +1,27 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Product, Collection, HeroProduct, SiteSettings } from '../types';
-import { sampleProducts, sampleCollections, defaultHeroProduct } from '../data/sampleData';
+import { supabase, setupBuildTriggers } from '../lib/supabase';
 
 interface ProductContextType {
   products: Product[];
   collections: Collection[];
   siteSettings: SiteSettings;
   loading: boolean;
-  addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => void;
-  updateProduct: (id: string, product: Partial<Product>) => void;
-  deleteProduct: (id: string) => void;
-  addCollection: (collection: Omit<Collection, 'id' | 'createdAt'>) => void;
-  updateCollection: (id: string, collection: Partial<Collection>) => void;
-  deleteCollection: (id: string) => void;
-  updateHeroProduct: (heroProduct: HeroProduct) => void;
-  updateSiteSettings: (settings: Partial<SiteSettings>) => void;
+  error: string | null;
+  addProduct: (product: Omit<Product, 'id' | 'createdAt'>) => Promise<void>;
+  updateProduct: (id: string, product: Partial<Product>) => Promise<void>;
+  deleteProduct: (id: string) => Promise<void>;
+  addCollection: (collection: Omit<Collection, 'id' | 'createdAt'>) => Promise<void>;
+  updateCollection: (id: string, collection: Partial<Collection>) => Promise<void>;
+  deleteCollection: (id: string) => Promise<void>;
+  updateHeroProduct: (heroProduct: HeroProduct) => Promise<void>;
+  updateSiteSettings: (settings: Partial<SiteSettings>) => Promise<void>;
   getProductById: (id: string) => Product | undefined;
   getCollectionById: (id: string) => Collection | undefined;
   getProductsByCollection: (collection: string) => Product[];
   getFeaturedProducts: () => Product[];
   searchProducts: (query: string) => Product[];
+  refreshData: () => Promise<void>;
 }
 
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
@@ -40,178 +42,289 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
   const [products, setProducts] = useState<Product[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettings>({
-    heroProduct: defaultHeroProduct,
+    heroProduct: {
+      id: 'hero-1',
+      title: 'Handcrafted Coconut Bowl Set',
+      description: 'Transform your dining experience with our beautifully handcrafted coconut bowls.',
+      image: 'https://images.pexels.com/photos/6542652/pexels-photo-6542652.jpeg?auto=compress&cs=tinysrgb&w=1200',
+      ctaText: 'Shop Coconut Bowls',
+      ctaLink: '/products?collection=Bowls & Tableware',
+      price: 45.99
+    },
     brandName: 'Everything Coconut',
     tagline: 'Sustainable Handmade Coconut Products'
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load initial data
-  useEffect(() => {
-    const loadData = () => {
-      try {
-        // Load products
-        const savedProducts = localStorage.getItem('coconutProducts');
-        if (savedProducts) {
-          const parsedProducts = JSON.parse(savedProducts);
-          setProducts(parsedProducts);
-        } else {
-          setProducts(sampleProducts);
-          localStorage.setItem('coconutProducts', JSON.stringify(sampleProducts));
-        }
-
-        // Load collections
-        const savedCollections = localStorage.getItem('coconutCollections');
-        if (savedCollections) {
-          const parsedCollections = JSON.parse(savedCollections);
-          setCollections(parsedCollections);
-        } else {
-          setCollections(sampleCollections);
-          localStorage.setItem('coconutCollections', JSON.stringify(sampleCollections));
-        }
-
-        // Load site settings
-        const savedSettings = localStorage.getItem('coconutSiteSettings');
-        if (savedSettings) {
-          const parsedSettings = JSON.parse(savedSettings);
-          setSiteSettings(parsedSettings);
-        } else {
-          const defaultSettings = {
-            heroProduct: defaultHeroProduct,
-            brandName: 'Everything Coconut',
-            tagline: 'Sustainable Handmade Coconut Products'
-          };
-          setSiteSettings(defaultSettings);
-          localStorage.setItem('coconutSiteSettings', JSON.stringify(defaultSettings));
-        }
-      } catch (error) {
-        console.error('Error loading data from localStorage:', error);
-        // Fallback to default data
-        setProducts(sampleProducts);
-        setCollections(sampleCollections);
-        setSiteSettings({
-          heroProduct: defaultHeroProduct,
-          brandName: 'Everything Coconut',
-          tagline: 'Sustainable Handmade Coconut Products'
-        });
-      } finally {
-        setLoading(false);
-      }
+  // Convert database row to Product type
+  const dbProductToProduct = (dbProduct: any, collections: Collection[]): Product => {
+    const collection = collections.find(c => c.id === dbProduct.collection_id);
+    return {
+      id: dbProduct.id,
+      name: dbProduct.name,
+      price: dbProduct.price,
+      description: dbProduct.description,
+      image: dbProduct.image,
+      collection: collection?.name || 'Unknown',
+      featured: dbProduct.featured,
+      createdAt: dbProduct.created_at,
     };
+  };
 
+  // Convert database row to Collection type
+  const dbCollectionToCollection = (dbCollection: any): Collection => ({
+    id: dbCollection.id,
+    name: dbCollection.name,
+    description: dbCollection.description,
+    image: dbCollection.image,
+    createdAt: dbCollection.created_at,
+  });
+
+  // Load data from Supabase
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Load collections first
+      const { data: collectionsData, error: collectionsError } = await supabase
+        .from('collections')
+        .select('*')
+        .order('name');
+
+      if (collectionsError) throw collectionsError;
+
+      const collectionsFormatted = collectionsData.map(dbCollectionToCollection);
+      setCollections(collectionsFormatted);
+
+      // Load products
+      const { data: productsData, error: productsError } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (productsError) throw productsError;
+
+      const productsFormatted = productsData.map(p => dbProductToProduct(p, collectionsFormatted));
+      setProducts(productsFormatted);
+
+      // Load site settings
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('site_settings')
+        .select('*');
+
+      if (settingsError) throw settingsError;
+
+      if (settingsData && settingsData.length > 0) {
+        const heroProductSetting = settingsData.find(s => s.key === 'hero_product');
+        const brandSetting = settingsData.find(s => s.key === 'brand_settings');
+
+        setSiteSettings(prev => ({
+          ...prev,
+          ...(heroProductSetting ? { heroProduct: heroProductSetting.value } : {}),
+          ...(brandSetting ? { 
+            brandName: brandSetting.value.brandName,
+            tagline: brandSetting.value.tagline 
+          } : {}),
+        }));
+      }
+
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initialize data and real-time subscriptions
+  useEffect(() => {
     loadData();
+    setupBuildTriggers();
+
+    // Set up real-time subscriptions for UI updates
+    const productsSubscription = supabase
+      .channel('products-ui-updates')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'products' },
+        () => loadData()
+      )
+      .subscribe();
+
+    const collectionsSubscription = supabase
+      .channel('collections-ui-updates')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'collections' },
+        () => loadData()
+      )
+      .subscribe();
+
+    const settingsSubscription = supabase
+      .channel('settings-ui-updates')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'site_settings' },
+        () => loadData()
+      )
+      .subscribe();
+
+    return () => {
+      productsSubscription.unsubscribe();
+      collectionsSubscription.unsubscribe();
+      settingsSubscription.unsubscribe();
+    };
   }, []);
 
-  // Save products to localStorage whenever products change
-  useEffect(() => {
-    if (products.length > 0 && !loading) {
-      try {
-        localStorage.setItem('coconutProducts', JSON.stringify(products));
-      } catch (error) {
-        console.error('Error saving products to localStorage:', error);
+  const addProduct = async (productData: Omit<Product, 'id' | 'createdAt'>) => {
+    try {
+      const collection = collections.find(c => c.name === productData.collection);
+      if (!collection) throw new Error('Collection not found');
+
+      const { error } = await supabase
+        .from('products')
+        .insert({
+          name: productData.name,
+          price: productData.price,
+          description: productData.description,
+          image: productData.image,
+          collection_id: collection.id,
+          featured: productData.featured,
+        });
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error adding product:', err);
+      throw err;
+    }
+  };
+
+  const updateProduct = async (id: string, productData: Partial<Product>) => {
+    try {
+      const updateData: any = {};
+      
+      if (productData.name !== undefined) updateData.name = productData.name;
+      if (productData.price !== undefined) updateData.price = productData.price;
+      if (productData.description !== undefined) updateData.description = productData.description;
+      if (productData.image !== undefined) updateData.image = productData.image;
+      if (productData.featured !== undefined) updateData.featured = productData.featured;
+      
+      if (productData.collection !== undefined) {
+        const collection = collections.find(c => c.name === productData.collection);
+        if (!collection) throw new Error('Collection not found');
+        updateData.collection_id = collection.id;
       }
-    }
-  }, [products, loading]);
 
-  // Save collections to localStorage whenever collections change
-  useEffect(() => {
-    if (collections.length > 0 && !loading) {
-      try {
-        localStorage.setItem('coconutCollections', JSON.stringify(collections));
-      } catch (error) {
-        console.error('Error saving collections to localStorage:', error);
+      const { error } = await supabase
+        .from('products')
+        .update(updateData)
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error updating product:', err);
+      throw err;
+    }
+  };
+
+  const deleteProduct = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error deleting product:', err);
+      throw err;
+    }
+  };
+
+  const addCollection = async (collectionData: Omit<Collection, 'id' | 'createdAt'>) => {
+    try {
+      const { error } = await supabase
+        .from('collections')
+        .insert({
+          name: collectionData.name,
+          description: collectionData.description,
+          image: collectionData.image,
+        });
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error adding collection:', err);
+      throw err;
+    }
+  };
+
+  const updateCollection = async (id: string, collectionData: Partial<Collection>) => {
+    try {
+      const { error } = await supabase
+        .from('collections')
+        .update({
+          name: collectionData.name,
+          description: collectionData.description,
+          image: collectionData.image,
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error updating collection:', err);
+      throw err;
+    }
+  };
+
+  const deleteCollection = async (id: string) => {
+    try {
+      // Products will be deleted automatically due to CASCADE
+      const { error } = await supabase
+        .from('collections')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error deleting collection:', err);
+      throw err;
+    }
+  };
+
+  const updateHeroProduct = async (heroProduct: HeroProduct) => {
+    try {
+      const { error } = await supabase
+        .from('site_settings')
+        .upsert({
+          key: 'hero_product',
+          value: heroProduct,
+        });
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error updating hero product:', err);
+      throw err;
+    }
+  };
+
+  const updateSiteSettings = async (settings: Partial<SiteSettings>) => {
+    try {
+      if (settings.brandName || settings.tagline) {
+        const { error } = await supabase
+          .from('site_settings')
+          .upsert({
+            key: 'brand_settings',
+            value: {
+              brandName: settings.brandName || siteSettings.brandName,
+              tagline: settings.tagline || siteSettings.tagline,
+            },
+          });
+
+        if (error) throw error;
       }
+    } catch (err) {
+      console.error('Error updating site settings:', err);
+      throw err;
     }
-  }, [collections, loading]);
-
-  // Save site settings to localStorage whenever they change
-  useEffect(() => {
-    if (!loading) {
-      try {
-        localStorage.setItem('coconutSiteSettings', JSON.stringify(siteSettings));
-        console.log('Site settings saved:', siteSettings); // Debug log
-      } catch (error) {
-        console.error('Error saving site settings to localStorage:', error);
-      }
-    }
-  }, [siteSettings, loading]);
-
-  const addProduct = (productData: Omit<Product, 'id' | 'createdAt'>) => {
-    const newProduct: Product = {
-      ...productData,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-    };
-    setProducts(prev => [...prev, newProduct]);
-  };
-
-  const updateProduct = (id: string, productData: Partial<Product>) => {
-    setProducts(prev =>
-      prev.map(product =>
-        product.id === id ? { ...product, ...productData } : product
-      )
-    );
-  };
-
-  const deleteProduct = (id: string) => {
-    setProducts(prev => prev.filter(product => product.id !== id));
-  };
-
-  const addCollection = (collectionData: Omit<Collection, 'id' | 'createdAt'>) => {
-    const newCollection: Collection = {
-      ...collectionData,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-    };
-    setCollections(prev => [...prev, newCollection]);
-  };
-
-  const updateCollection = (id: string, collectionData: Partial<Collection>) => {
-    const oldCollection = collections.find(c => c.id === id);
-    if (oldCollection && collectionData.name && oldCollection.name !== collectionData.name) {
-      // Update all products that use this collection
-      setProducts(prev =>
-        prev.map(product =>
-          product.collection === oldCollection.name
-            ? { ...product, collection: collectionData.name }
-            : product
-        )
-      );
-    }
-    
-    setCollections(prev =>
-      prev.map(collection =>
-        collection.id === id ? { ...collection, ...collectionData } : collection
-      )
-    );
-  };
-
-  const deleteCollection = (id: string) => {
-    const collection = collections.find(c => c.id === id);
-    if (collection) {
-      // Remove all products in this collection
-      setProducts(prev => prev.filter(product => product.collection !== collection.name));
-      setCollections(prev => prev.filter(c => c.id !== id));
-    }
-  };
-
-  const updateHeroProduct = (heroProduct: HeroProduct) => {
-    console.log('Updating hero product:', heroProduct); // Debug log
-    setSiteSettings(prev => {
-      const newSettings = {
-        ...prev,
-        heroProduct: { ...heroProduct }
-      };
-      console.log('New site settings:', newSettings); // Debug log
-      return newSettings;
-    });
-  };
-
-  const updateSiteSettings = (settings: Partial<SiteSettings>) => {
-    setSiteSettings(prev => ({
-      ...prev,
-      ...settings
-    }));
   };
 
   const getProductById = (id: string) => {
@@ -223,8 +336,9 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
   };
 
   const getProductsByCollection = (collection: string) => {
+    if (collection === 'all') return products;
     return products.filter(product => 
-      collection === 'all' || product.collection.toLowerCase() === collection.toLowerCase()
+      product.collection.toLowerCase() === collection.toLowerCase()
     );
   };
 
@@ -243,6 +357,10 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
     );
   };
 
+  const refreshData = async () => {
+    await loadData();
+  };
+
   return (
     <ProductContext.Provider
       value={{
@@ -250,6 +368,7 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
         collections,
         siteSettings,
         loading,
+        error,
         addProduct,
         updateProduct,
         deleteProduct,
@@ -263,6 +382,7 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
         getProductsByCollection,
         getFeaturedProducts,
         searchProducts,
+        refreshData,
       }}
     >
       {children}
