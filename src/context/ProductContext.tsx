@@ -81,6 +81,27 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
     createdAt: dbCollection.created_at,
   });
 
+  // Validate hero product data
+  const isValidHeroProduct = (data: any): data is HeroProduct => {
+    return data && 
+           typeof data === 'object' &&
+           typeof data.id === 'string' &&
+           typeof data.title === 'string' &&
+           typeof data.description === 'string' &&
+           typeof data.image === 'string' &&
+           typeof data.ctaText === 'string' &&
+           typeof data.ctaLink === 'string' &&
+           typeof data.price === 'number';
+  };
+
+  // Validate brand settings data
+  const isValidBrandSettings = (data: any): boolean => {
+    return data && 
+           typeof data === 'object' &&
+           typeof data.brandName === 'string' &&
+           typeof data.tagline === 'string';
+  };
+
   // Load data from Supabase
   const loadData = async () => {
     try {
@@ -120,14 +141,22 @@ export const ProductProvider: React.FC<ProductProviderProps> = ({ children }) =>
         const heroProductSetting = settingsData.find(s => s.key === 'hero_product');
         const brandSetting = settingsData.find(s => s.key === 'brand_settings');
 
-        setSiteSettings(prev => ({
-          ...prev,
-          ...(heroProductSetting ? { heroProduct: heroProductSetting.value } : {}),
-          ...(brandSetting ? { 
-            brandName: brandSetting.value.brandName,
-            tagline: brandSetting.value.tagline 
-          } : {}),
-        }));
+        setSiteSettings(prev => {
+          const newSettings = { ...prev };
+
+          // Validate and update hero product if valid
+          if (heroProductSetting && isValidHeroProduct(heroProductSetting.value)) {
+            newSettings.heroProduct = heroProductSetting.value;
+          }
+
+          // Validate and update brand settings if valid
+          if (brandSetting && isValidBrandSettings(brandSetting.value)) {
+            newSettings.brandName = brandSetting.value.brandName;
+            newSettings.tagline = brandSetting.value.tagline;
+          }
+
+          return newSettings;
+        });
       }
 
     } catch (err) {
